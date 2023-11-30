@@ -1,6 +1,8 @@
 ECHO OSC
 
 ECHO OSC is a powerful application designed to operate the OBSBOT Tiny Series Camera , Tiny & Tiny 4K,  with smooth pan, tilt, and zoom functions. It leverages the power of Open Sound Control (OSC) to provide seamless control over your OBSBOT devices.
+
+If you are running more than one camera, run mutliple copies of the app. this is what the profile feature was designed for. you can link you camera and port by profile on each instace of ECHO OSC saving you set up time with each camera. 
 DOWNLOAD HERE - https://github.com/mrelive/ECHOOSC/releases/tag/StableRelease
 
 
