@@ -74,6 +74,16 @@ namespace ECHOOSC
         private Button DELPOS;
         private Button SAVEPOS;
         private IContainer components;
+         protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (notifyIcon1 != null)
+        {
+            notifyIcon1.Visible = false; // Hide the icon
+            notifyIcon1.Dispose(); // Release resources
+            notifyIcon1 = null;
+        }
+    }
 public class Profile
 {
      public string DeviceId { get; set; }
@@ -854,7 +864,9 @@ private void LoadProfilesFromFile()
         var positionsJson = File.ReadAllText("positions.json");
         CameraPositions = JsonConvert.DeserializeObject<List<CameraPosition>>(positionsJson);
     }
-    else
+
+    // Ensure CameraPositions is always initialized
+    if (CameraPositions == null)
     {
         CameraPositions = new List<CameraPosition>();
     }
@@ -929,7 +941,7 @@ public void StartServer()
 
     // Get the friendly name for the selected device
     string deviceName = comboDevice.SelectedItem.ToString();
-
+  
     // Set the Text property
     notifyIcon1.Text = $"ECHO OSC-{textPort.Text} Cam-{deviceName}.";
 }
@@ -1408,6 +1420,7 @@ private void SaveProfilesToFile()
     string positionName = $"POS #{CameraPositions.Count} (Pan: {pan}, Tilt: {tilt}, Zoom: {zoom})";
     POSBOX.Items.Add(positionName);
      SavePositionsToFile();
+       camControl.SendAllPositions(); 
 }private void SavePositionsToFile()
 {
     var positionsJson = JsonConvert.SerializeObject(CameraPositions);
@@ -1420,7 +1433,8 @@ internal void DELPOS_Click(object sender, EventArgs e)
     {
         CameraPositions.RemoveAt(selectedIndex);
         POSBOX.Items.RemoveAt(selectedIndex);
-    }
+         SavePositionsToFile();
+    } camControl.SendAllPositions(); // Send updated positions
 }
     }
 
@@ -1460,8 +1474,9 @@ internal void DELPOS_Click(object sender, EventArgs e)
             if (oscSender == null)
             {
                 oscSender = new OscSender(IPAddress.Parse("127.0.0.1"), 0, packet.Origin.Port);
-                oscSender.Connect();
-            }
+                oscSender.Connect();  SendAllPositions();
+        }
+            
 
             // Start the timer after the first OSC message is received
             if (timer == null)
@@ -1473,7 +1488,7 @@ internal void DELPOS_Click(object sender, EventArgs e)
         }
     });
 }
-
+   
         public void stop()
         {
             Console.WriteLine("Cleanup on isle 7");
@@ -1705,7 +1720,15 @@ internal void DELPOS_Click(object sender, EventArgs e)
             }}
      
 
-
+ public void SendAllPositions()
+    {
+        for (int i = 0; i < _parent.CameraPositions.Count; i++)
+        {
+            Form1.CameraPosition position = _parent.CameraPositions[i];
+            var oscMessage = new OscMessage($"/POSITION/{i}", $"{position.Pan} {position.Tilt} {position.Zoom}");
+                        oscSender.Send(oscMessage);
+        }
+    }
     
 }
         
