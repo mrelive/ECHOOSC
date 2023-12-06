@@ -839,20 +839,24 @@ private async void POSBOX_SelectedIndexChanged(object sender, EventArgs e)
             for (int i = 0; i < panDistance; i++)
             {
                 cameraControl.Set(CameraControlProperty.Pan, currentPan + i * panDirection, CameraControlFlags.Manual);
-                await Task.Delay(100); // Adjust delay as needed
+                await Task.Delay(10); // Adjust delay as needed
             }
             for (int i = 0; i < tiltDistance; i++)
             {
                 cameraControl.Set(CameraControlProperty.Tilt, currentTilt + i * tiltDirection, CameraControlFlags.Manual);
-                await Task.Delay(100); // Adjust delay as needed
+                await Task.Delay(10); // Adjust delay as needed
             }
 
             // Set the zoom level
             cameraControl.Set(CameraControlProperty.Zoom, zoom, CameraControlFlags.Manual);
         }
+
+        if (camControl.IsOscSenderConnected())
+        {
+            camControl.SendAllPositions();
+        }
     }
 }
-
         private void SetCameraControl(int x, int y)
 {
     var cameraControl = theDevice as IAMCameraControl;
@@ -985,7 +989,10 @@ public void StopServer()
     buttonStopServer.Enabled = false;
     textPort.Enabled = true;
     if (camControl != null)
+    {
         camControl.stop();
+        camControl.CloseOscSender(); // Close the OSC sender
+    }
 
     // Set the Text property
     notifyIcon1.Text = "ECHO OSC NOT STARTED.";
@@ -1452,8 +1459,12 @@ private void SaveProfilesToFile()
 
     string positionName = $"POS #{CameraPositions.Count} (Pan: {pan}, Tilt: {tilt}, Zoom: {zoom})";
     POSBOX.Items.Add(positionName);
-     SavePositionsToFile();
-       camControl.SendAllPositions(); 
+    SavePositionsToFile();
+
+   if (camControl != null && camControl.IsOscSenderConnected())
+{
+    camControl.SendAllPositions();
+}
 }private void SavePositionsToFile()
 {
     var positionsJson = JsonConvert.SerializeObject(CameraPositions);
@@ -1466,8 +1477,13 @@ internal void DELPOS_Click(object sender, EventArgs e)
     {
         CameraPositions.RemoveAt(selectedIndex);
         POSBOX.Items.RemoveAt(selectedIndex);
-         SavePositionsToFile();
-    } camControl.SendAllPositions(); // Send updated positions
+        SavePositionsToFile();
+    }
+
+   if (camControl != null && camControl.IsOscSenderConnected())
+{
+    camControl.SendAllPositions();
+}
 }
     }
 
@@ -1486,6 +1502,7 @@ internal void DELPOS_Click(object sender, EventArgs e)
         private IPEndPoint _clientEndPoint;
         Boolean isSetup = false;
        public CameraControl(int port, Form1 parent)
+       
 {
     _parent = parent;
  
@@ -1520,6 +1537,16 @@ internal void DELPOS_Click(object sender, EventArgs e)
             }
         }
     });
+}public void CloseOscSender()
+{
+    if (oscSender != null && oscSender.State == OscSocketState.Connected)
+    {
+        oscSender.Close();
+    }
+}
+public bool IsOscSenderConnected()
+{
+    return oscSender != null && oscSender.State == OscSocketState.Connected;
 }
    
         public void stop()
