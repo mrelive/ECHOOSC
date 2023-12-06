@@ -74,6 +74,16 @@ namespace ECHOOSC
         private Button DELPOS;
         private Button SAVEPOS;
         private IContainer components;
+         protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (notifyIcon1 != null)
+        {
+            notifyIcon1.Visible = false; // Hide the icon
+            notifyIcon1.Dispose(); // Release resources
+            notifyIcon1 = null;
+        }
+    }
 public class Profile
 {
      public string DeviceId { get; set; }
@@ -794,18 +804,51 @@ private void PROFILEBOX_SelectedIndexChanged(object sender, EventArgs e)
         ComboBoxNotif.SelectedIndex = PROFILEBOX.SelectedIndex;
         LoadSelectedProfile();
     }
-}private void POSBOX_SelectedIndexChanged(object sender, EventArgs e)
+}
+private async void POSBOX_SelectedIndexChanged(object sender, EventArgs e)
 {
+    if (camControl == null)
+    {
+        return;
+    }
+
     if (POSBOX.SelectedIndex >= 0 && POSBOX.SelectedIndex < CameraPositions.Count)
     {
         CameraPosition selectedPosition = CameraPositions[POSBOX.SelectedIndex];
 
+        // Set the camera control properties directly
         var cameraControl = theDevice as IAMCameraControl;
         if (cameraControl != null)
         {
-            cameraControl.Set(CameraControlProperty.Pan, selectedPosition.Pan, CameraControlFlags.Manual);
-            cameraControl.Set(CameraControlProperty.Tilt, selectedPosition.Tilt, CameraControlFlags.Manual);
-            cameraControl.Set(CameraControlProperty.Zoom, selectedPosition.Zoom, CameraControlFlags.Manual);
+            // Get the current camera position
+            cameraControl.Get(CameraControlProperty.Pan, out int currentPan, out var flags);
+            cameraControl.Get(CameraControlProperty.Tilt, out int currentTilt, out flags);
+
+            // Get the desired position
+            int desiredPan = selectedPosition.Pan;
+            int desiredTilt = selectedPosition.Tilt;
+            int zoom = selectedPosition.Zoom;
+
+            // Calculate the direction and distance to move
+            int panDirection = desiredPan > currentPan ? 1 : -1;
+            int tiltDirection = desiredTilt > currentTilt ? 1 : -1;
+            int panDistance = Math.Abs(desiredPan - currentPan);
+            int tiltDistance = Math.Abs(desiredTilt - currentTilt);
+
+            // Move the camera to the desired position
+            for (int i = 0; i < panDistance; i++)
+            {
+                cameraControl.Set(CameraControlProperty.Pan, currentPan + i * panDirection, CameraControlFlags.Manual);
+                await Task.Delay(100); // Adjust delay as needed
+            }
+            for (int i = 0; i < tiltDistance; i++)
+            {
+                cameraControl.Set(CameraControlProperty.Tilt, currentTilt + i * tiltDirection, CameraControlFlags.Manual);
+                await Task.Delay(100); // Adjust delay as needed
+            }
+
+            // Set the zoom level
+            cameraControl.Set(CameraControlProperty.Zoom, zoom, CameraControlFlags.Manual);
         }
     }
 }
@@ -854,7 +897,9 @@ private void LoadProfilesFromFile()
         var positionsJson = File.ReadAllText("positions.json");
         CameraPositions = JsonConvert.DeserializeObject<List<CameraPosition>>(positionsJson);
     }
-    else
+
+    // Ensure CameraPositions is always initialized
+    if (CameraPositions == null)
     {
         CameraPositions = new List<CameraPosition>();
     }
@@ -929,7 +974,7 @@ public void StartServer()
 
     // Get the friendly name for the selected device
     string deviceName = comboDevice.SelectedItem.ToString();
-
+  
     // Set the Text property
     notifyIcon1.Text = $"ECHO OSC-{textPort.Text} Cam-{deviceName}.";
 }
@@ -1408,6 +1453,7 @@ private void SaveProfilesToFile()
     string positionName = $"POS #{CameraPositions.Count} (Pan: {pan}, Tilt: {tilt}, Zoom: {zoom})";
     POSBOX.Items.Add(positionName);
      SavePositionsToFile();
+       camControl.SendAllPositions(); 
 }private void SavePositionsToFile()
 {
     var positionsJson = JsonConvert.SerializeObject(CameraPositions);
@@ -1420,7 +1466,8 @@ internal void DELPOS_Click(object sender, EventArgs e)
     {
         CameraPositions.RemoveAt(selectedIndex);
         POSBOX.Items.RemoveAt(selectedIndex);
-    }
+         SavePositionsToFile();
+    } camControl.SendAllPositions(); // Send updated positions
 }
     }
 
@@ -1460,8 +1507,9 @@ internal void DELPOS_Click(object sender, EventArgs e)
             if (oscSender == null)
             {
                 oscSender = new OscSender(IPAddress.Parse("127.0.0.1"), 0, packet.Origin.Port);
-                oscSender.Connect();
-            }
+                oscSender.Connect();  SendAllPositions();
+        }
+            
 
             // Start the timer after the first OSC message is received
             if (timer == null)
@@ -1473,7 +1521,7 @@ internal void DELPOS_Click(object sender, EventArgs e)
         }
     });
 }
-
+   
         public void stop()
         {
             Console.WriteLine("Cleanup on isle 7");
@@ -1514,9 +1562,44 @@ internal void DELPOS_Click(object sender, EventArgs e)
     var oscMessage = new OscMessage(oscAddress, value);
     oscSender.Send(oscMessage);
 }
+public async Task POSITION(int desiredPan, int desiredTilt, int zoom)
+{
+    if (cameraControl == null)
+    {
+        // cameraControl is not initialized, return from the method
+        return;
+    }
+    // Get the current camera position
+    cameraControl.Get(CameraControlProperty.Pan, out int currentPan, out var flags);
+    cameraControl.Get(CameraControlProperty.Tilt, out int currentTilt, out flags);
+
+    // Calculate the direction and distance to move
+    int panDirection = desiredPan > currentPan ? 1 : -1;
+    int tiltDirection = desiredTilt > currentTilt ? 1 : -1;
+    int panDistance = Math.Abs(desiredPan - currentPan);
+    int tiltDistance = Math.Abs(desiredTilt - currentTilt);
+
+    // Move the camera to the desired position
+    for (int i = 0; i < panDistance; i++)
+    {
+        cameraControl.Set(CameraControlProperty.Pan, currentPan + i * panDirection, CameraControlFlags.Manual);
+        await Task.Delay(100); // Adjust delay as needed
+    }
+    for (int i = 0; i < tiltDistance; i++)
+    {
+        cameraControl.Set(CameraControlProperty.Tilt, currentTilt + i * tiltDirection, CameraControlFlags.Manual);
+        await Task.Delay(100); // Adjust delay as needed
+    }
 
 
-      private void receiveOSC(OscPacket packet)
+    
+
+    // Set the zoom level
+    cameraControl.Set(CameraControlProperty.Zoom, zoom, CameraControlFlags.Manual);
+}
+
+
+      private async void receiveOSC(OscPacket packet)
 {
     if (!isSetup)
             {
@@ -1605,20 +1688,7 @@ internal void DELPOS_Click(object sender, EventArgs e)
                         
                     });
                 }
-               if (address == "/POSITION")
-{
-    int pan = (int)args[0];
-    int tilt = (int)args[1];
-    int zoom = (int)args[2];
-
-    cameraControl.Set(CameraControlProperty.Pan, pan, CameraControlFlags.Manual);
-    cameraControl.Set(CameraControlProperty.Tilt, tilt, CameraControlFlags.Manual);
-    cameraControl.Set(CameraControlProperty.Zoom, zoom, CameraControlFlags.Manual);
-
-    _parent?.textLastMessage?.Invoke((MethodInvoker)delegate {
-        _parent.textLastMessage.Text = $"Pan: {pan}, Tilt: {tilt}, Zoom: {zoom}";
-    });
-}
+               
                  if (address == "/INFO")
     {
         cameraControl.Get(CameraControlProperty.Pan, out int pan, out var flags);
@@ -1677,7 +1747,16 @@ internal void DELPOS_Click(object sender, EventArgs e)
             _parent.Invoke((MethodInvoker)delegate {
                 _parent.DELPOS_Click(null, EventArgs.Empty);
             });
-        }
+        }            if (address == "/POSITION" && args.Length >= 3)
+            {
+                int desiredPan = (int)args[0];
+                int desiredTilt = (int)args[1];
+                int zoom = (int)args[2];
+                
+
+                await POSITION(desiredPan, desiredTilt, zoom);
+            }
+
     
 
     
@@ -1705,7 +1784,15 @@ internal void DELPOS_Click(object sender, EventArgs e)
             }}
      
 
-
+ public void SendAllPositions()
+    {
+        for (int i = 0; i < _parent.CameraPositions.Count; i++)
+        {
+            Form1.CameraPosition position = _parent.CameraPositions[i];
+            var oscMessage = new OscMessage($"/POSITION/{i}", $"{position.Pan} {position.Tilt} {position.Zoom}");
+                        oscSender.Send(oscMessage);
+        }
+    }
     
 }
         
