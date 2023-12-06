@@ -839,12 +839,12 @@ private async void POSBOX_SelectedIndexChanged(object sender, EventArgs e)
             for (int i = 0; i < panDistance; i++)
             {
                 cameraControl.Set(CameraControlProperty.Pan, currentPan + i * panDirection, CameraControlFlags.Manual);
-                await Task.Delay(10); // Adjust delay as needed
+                await Task.Delay(45); // Adjust delay as needed
             }
             for (int i = 0; i < tiltDistance; i++)
             {
                 cameraControl.Set(CameraControlProperty.Tilt, currentTilt + i * tiltDirection, CameraControlFlags.Manual);
-                await Task.Delay(10); // Adjust delay as needed
+                await Task.Delay(45); // Adjust delay as needed
             }
 
             // Set the zoom level
@@ -857,6 +857,7 @@ private async void POSBOX_SelectedIndexChanged(object sender, EventArgs e)
         }
     }
 }
+
         private void SetCameraControl(int x, int y)
 {
     var cameraControl = theDevice as IAMCameraControl;
@@ -989,10 +990,7 @@ public void StopServer()
     buttonStopServer.Enabled = false;
     textPort.Enabled = true;
     if (camControl != null)
-    {
         camControl.stop();
-        camControl.CloseOscSender(); // Close the OSC sender
-    }
 
     // Set the Text property
     notifyIcon1.Text = "ECHO OSC NOT STARTED.";
@@ -1537,12 +1535,6 @@ internal void DELPOS_Click(object sender, EventArgs e)
             }
         }
     });
-}public void CloseOscSender()
-{
-    if (oscSender != null && oscSender.State == OscSocketState.Connected)
-    {
-        oscSender.Close();
-    }
 }
 public bool IsOscSenderConnected()
 {
